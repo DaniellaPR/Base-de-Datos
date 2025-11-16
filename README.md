@@ -33,5 +33,5 @@ Scripts de PL-SQL que incluyen:
 - Optimización de Costos - Conceptos
 - Optimización de Costos - Tiempos de transacción y de espera
 - Optimización de Costos - Cálculo del costo de un sistema
-- Concurrencia del sistema
+- Transaccionalidad del sistema
 
