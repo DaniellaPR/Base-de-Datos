@@ -11,10 +11,13 @@ SHOW PARAMETER OPTIMIZER_MODE;
 ALTER SESSION SET OPTIMIZER_MODE = FIRST_ROWS;
 ALTER SESSION SET OPTIMIZER_MODE = ALL_ROWS;
 ALTER SYSTEM SET OPTIMIZER_MODE = FIRST_ROWS_10 SCOPE=BOTH;
+
 EXPLAIN PLAN FOR --consulta para explicar plan
 SELECT * FROM producto
 WHERE prd_precio > 100;
+
 EXEC DBMS_STATS.GATHER_TABLE_STATS('USERDBII','PRODUCTO'); --actualizar estadísticas
+
 SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY); --mostrar plan
 SELECT * FROM producto --consulta normal
 WHERE prd_precio > 100;
@@ -25,8 +28,8 @@ WHERE prd_precio > 100;
 SELECT event, total_waits, time_waited_micro --global
 FROM v$system_event
 WHERE event LIKE 'db_file%read';
-SELECT (SUM(time_waited_micro) / SUM(total_waits)) / 1000 AS avg_transfer_time_ms --
-especifco para tT
+
+SELECT (SUM(time_waited_micro) / SUM(total_waits)) / 1000 AS avg_transfer_time_ms --especifco para tT
 FROM v$system_event
 WHERE event = 'db file sequential read';
 --3. tS
@@ -40,6 +43,7 @@ FROM user_tables
 WHERE table_name IN ('PRODUCTO'))
 SELECT table_name, num_rows, blocks,0.32 * blocks AS br
 FROM base;
+
 select (30*5)/1.6 as b from dual; --calculo final para b
 --5. Costo
 SELECT (1*(0.32+0.32)+0.32+(0.32*16)) as costo from dual;
@@ -69,5 +73,7 @@ FROM user_tables
 WHERE table_name IN ('PRODUCTO'))
 SELECT table_name, num_rows,0.32 * 50 AS br
 FROM base;
+
 select (30*50)/1.6 as b from dual;
+
 SELECT (3*(0.32+2)+2+(0.32*93.75)) as costo from dual;
