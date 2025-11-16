@@ -1,27 +1,27 @@
-8192 byte>bloque>extensiones>segmento
+--8192 byte>bloque>extensiones>segmento
 
 2.1 Optimización Costos:
 
-- SET SERVEROUTPUT ON;                                                    //para visualizar salida de procedimientos
-- EXEC DBMS_STATS.GATHER_TABLE_STATS(USER, "TABLA");                      //actualiza estadísticas de una tabla
+- SET SERVEROUTPUT ON;                                                    --para visualizar salida de procedimientos
+- EXEC DBMS_STATS.GATHER_TABLE_STATS(USER, "TABLA");                      --actualiza estadísticas de una tabla
  
-- SELECT table_name, num_rows, blocks                                     //estadísticas usuario actual:                  #tuplas
+- SELECT table_name, num_rows, blocks                                     --estadísticas usuario actual:                  #tuplas
   FROM user_tables 
   WHERE table_name IN ('TABLA', 'OTRA','OTA');
 
-- SELECT table_name, blocks                                              //estadísticas las tablas del sistema:           #blocks
+- SELECT table_name, blocks                                              --estadísticas las tablas del sistema:           #blocks
   FROM dba tables
   WHERE owner = USER
   AND table_name IN ('TABLA','OTRA','OTA');
 
-- SELECT segment_name, segment_type, blocks, bytes                       //información física real ocupada en disco       tamaño tuplas
+- SELECT segment_name, segment_type, blocks, bytes                       --información física real ocupada en disco       tamaño tuplas
   FROM dba_segments
   WHERE owner = USER
   AND segment_name IN ('TABLA','OTRA','OTA");
 
-- SELECT AVG_ROW_LEN FROM user_tables WHERE table_name = 'TABLA";        //tamaño de tupla
+- SELECT AVG_ROW_LEN FROM user_tables WHERE table_name = 'TABLA";        --tamaño de tupla
 
-- SELECT table_name, num_rows, blocks,                                   //tuplas por bloque                              #fr
+- SELECT table_name, num_rows, blocks,                                   --tuplas por bloque                              #fr
   CASE WHEN blocks > 0 THEN num_rows / blocks ELSE 0 END AS tuplas_por_bloque 
   FROM user_tables
   WHERE table_name IN ('TABLA', 'OTRA','OTA');
@@ -31,12 +31,12 @@
   FROM user_tables
   WHERE table_name='EMPLEADO';
 
-- SELECT COUNT(DISTINCT bod_codigo) AS bodegas_usadas                    //valor distinto de atributo                    #V(A, r)
+- SELECT COUNT(DISTINCT bod_codigo) AS bodegas_usadas                    --valor distinto de atributo                    #V(A, r)
   FROM bodega_producto;
 
-- CREATE INDEX IDX PRODUCTO_DESC ON TABLA(ATRIBUTO)                      //índice
+- CREATE INDEX IDX PRODUCTO_DESC ON TABLA(ATRIBUTO)                      --índice
 
-- SELECT index_name, table_name, blevel, num_rows                        //altura de índice                              #AAi
+- SELECT index_name, table_name, blevel, num_rows                        --altura de índice                              #AAi
   FROM user_indexes
   WHERE table_name IN ('TABLA', 'OTRA','OTA');
 
@@ -49,27 +49,27 @@
 - SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY);
 
 
-2.1.1 Tiempos:
+--2.1.1 Tiempos:
 
-- SELECT event, total_waits, time_waited_micro                                  //eventos de lectura a nivel de sistema       #tT
+- SELECT event, total_waits, time_waited_micro                                  --eventos de lectura a nivel de sistema       #tT
   FROM v$system_event
   WHERE event LIKE 'db file%read';
 
-- SELECT (SUM(time_waited_micro) / SUM(total_waits)) / 1000 AS avg_transfer_time_ms //tiempo de transferencia de un bloque    #tT
+- SELECT (SUM(time_waited_micro) / SUM(total_waits)) / 1000 AS avg_transfer_time_ms --tiempo de transferencia de un bloque    #tT
   FROM v$system_event
   WHERE event = 'db file sequential read';
 
-- SELECT (SUM(time_waited_micro) / SUM(total_waits)) / 1000 AS avg_search_time_ms   //Tiempo de búsqueda                      #tS
+- SELECT (SUM(time_waited_micro) / SUM(total_waits)) / 1000 AS avg_search_time_ms   --Tiempo de búsqueda                      #tS
   FROM v$session_event
   WHERE event = 'db file scattered read';
 
-- SELECT p.prd_descripcion, b.bod_descripcion, bp.prb_existencia                    //consulta
+- SELECT p.prd_descripcion, b.bod_descripcion, bp.prb_existencia                    --consulta
   FROM producto p
   JOIN bodega_producto bp ON p.prd_codigo = bp.prd_codigo
   JOIN bodega b ON bp.bod_codigo = b.bod_codigo
   WHERE b.bod_descripcion = 'Bodega Uno';
 
-- SELECT sid, event, total_waits, time_waited_micro                                 //monitoreo en tiempo real
+- SELECT sid, event, total_waits, time_waited_micro                                 --monitoreo en tiempo real
   FROM v$session_event
   WHERE event LIKE 'db file%read'
   AND sid IN (SELECT sid FROM v$session WHERE username = USER);
@@ -77,29 +77,29 @@
 
 2.2 Cálculo Costos:
 
-- SELECT index_name, table_name, blevel, (blevel + 1) AS hi                                                        //hi o blevel+1
+- SELECT index_name, table_name, blevel, (blevel + 1) AS hi                                                        --hi o blevel+1
   FROM user_indexes
   WHERE table_name IN ('PRODUCTO','BODEGA','BODEGA_PRODUCTO');
 
 - BEGIN
    FOR i IN 1..1000 LOOP
      INSERT INTO producto (prd_codigo, prd_descripcion, prd_precio)
-     VALUES ('P' || TO_CHAR(i,'FM000000'), 'Producto extra ' || i, ROUND(DBMS_RANDOM.VALUE(10,500),2));           //insertar datos
+     VALUES ('P' || TO_CHAR(i,'FM000000'), 'Producto extra ' || i, ROUND(DBMS_RANDOM.VALUE(10,500),2));           --insertar datos
    END LOOP;
  END;
  /
 
 - SELECT MAX(prd_codigo) AS max_codigo FROM producto;
 
-- SELECT (SUM(time_waited_micro)/SUM(total_waits))/1000 AS tTms                                                   //tT
+- SELECT (SUM(time_waited_micro)/SUM(total_waits))/1000 AS tTms                                                   --tT
   FROM v$system_event
   WHERE event='db file sequential read';
 
-- SELECT (SUM(time_waited_micro)/SUM(total_waits))/1000 AS tSms                                                   //tS
+- SELECT (SUM(time_waited_micro)/SUM(total_waits))/1000 AS tSms                                                   --tS
   FROM v$session_event
   WHERE event='db file scattered read';
 
-- WITH base AS (SELECT table_name, num_rows, blocks                                                               //bloques por tiempo
+- WITH base AS (SELECT table_name, num_rows, blocks                                                               --bloques por tiempo
   FROM user_tables
   WHERE table_name IN ('PRODUCTO','BODEGA','BODEGA_PRODUCTO'))
   SELECT table_name, num_rows, blocks,3.7904114 * blocks AS tT_ms 
@@ -115,9 +115,9 @@
 
 - SHOW PARAMETER OPTIMIZER_MODE;
 
-- ALTER SESSION SET OPTIMIZER_MODE = ALL_ROWS;                              //cambair a nivel de sesión
+- ALTER SESSION SET OPTIMIZER_MODE = ALL_ROWS;                              --cambair a nivel de sesión
 
-- ALTER SYSTEM SET OPTIMIZER_MODE = FIRST_ROWS_10 SCOPE=BOTH;               //cambiar a nivel de sistema
+- ALTER SYSTEM SET OPTIMIZER_MODE = FIRST_ROWS_10 SCOPE=BOTH;               --cambiar a nivel de sistema
 
 - ALTER SESSION SET OPTIMIZER_MODE = FIRST_ROWS;
 
