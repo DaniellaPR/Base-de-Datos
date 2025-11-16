@@ -1,0 +1,173 @@
+8192 byte>bloque>extensiones>segmento
+
+2.1 Optimización Costos:
+
+- SET SERVEROUTPUT ON;                                                    //para visualizar salida de procedimientos
+- EXEC DBMS_STATS.GATHER_TABLE_STATS(USER, "TABLA");                      //actualiza estadísticas de una tabla
+ 
+- SELECT table_name, num_rows, blocks                                     //estadísticas usuario actual:                  #tuplas
+  FROM user_tables 
+  WHERE table_name IN ('TABLA', 'OTRA','OTA');
+
+- SELECT table_name, blocks                                              //estadísticas las tablas del sistema:           #blocks
+  FROM dba tables
+  WHERE owner = USER
+  AND table_name IN ('TABLA','OTRA','OTA');
+
+- SELECT segment_name, segment_type, blocks, bytes                       //información física real ocupada en disco       tamaño tuplas
+  FROM dba_segments
+  WHERE owner = USER
+  AND segment_name IN ('TABLA','OTRA','OTA");
+
+- SELECT AVG_ROW_LEN FROM user_tables WHERE table_name = 'TABLA";        //tamaño de tupla
+
+- SELECT table_name, num_rows, blocks,                                   //tuplas por bloque                              #fr
+  CASE WHEN blocks > 0 THEN num_rows / blocks ELSE 0 END AS tuplas_por_bloque 
+  FROM user_tables
+  WHERE table_name IN ('TABLA', 'OTRA','OTA');
+
+
+  SELECT num_rows/blocks AS tuplas_por_bloque
+  FROM user_tables
+  WHERE table_name='EMPLEADO';
+
+- SELECT COUNT(DISTINCT bod_codigo) AS bodegas_usadas                    //valor distinto de atributo                    #V(A, r)
+  FROM bodega_producto;
+
+- CREATE INDEX IDX PRODUCTO_DESC ON TABLA(ATRIBUTO)                      //índice
+
+- SELECT index_name, table_name, blevel, num_rows                        //altura de índice                              #AAi
+  FROM user_indexes
+  WHERE table_name IN ('TABLA', 'OTRA','OTA');
+
+- EXPLAIN PLAN FOR
+  SELECT atributo1, atributo2, atributo 3
+  FROM tabla t
+  JOIN tabla2 t2 ON atr1 = atr2
+  JOIN tabla3 t3 ON atri2 = atri3;
+
+- SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY);
+
+
+2.1.1 Tiempos:
+
+- SELECT event, total_waits, time_waited_micro                                  //eventos de lectura a nivel de sistema       #tT
+  FROM v$system_event
+  WHERE event LIKE 'db file%read';
+
+- SELECT (SUM(time_waited_micro) / SUM(total_waits)) / 1000 AS avg_transfer_time_ms //tiempo de transferencia de un bloque    #tT
+  FROM v$system_event
+  WHERE event = 'db file sequential read';
+
+- SELECT (SUM(time_waited_micro) / SUM(total_waits)) / 1000 AS avg_search_time_ms   //Tiempo de búsqueda                      #tS
+  FROM v$session_event
+  WHERE event = 'db file scattered read';
+
+- SELECT p.prd_descripcion, b.bod_descripcion, bp.prb_existencia                    //consulta
+  FROM producto p
+  JOIN bodega_producto bp ON p.prd_codigo = bp.prd_codigo
+  JOIN bodega b ON bp.bod_codigo = b.bod_codigo
+  WHERE b.bod_descripcion = 'Bodega Uno';
+
+- SELECT sid, event, total_waits, time_waited_micro                                 //monitoreo en tiempo real
+  FROM v$session_event
+  WHERE event LIKE 'db file%read'
+  AND sid IN (SELECT sid FROM v$session WHERE username = USER);
+
+
+2.2 Cálculo Costos:
+
+- SELECT index_name, table_name, blevel, (blevel + 1) AS hi                                                        //hi o blevel+1
+  FROM user_indexes
+  WHERE table_name IN ('PRODUCTO','BODEGA','BODEGA_PRODUCTO');
+
+- BEGIN
+   FOR i IN 1..1000 LOOP
+     INSERT INTO producto (prd_codigo, prd_descripcion, prd_precio)
+     VALUES ('P' || TO_CHAR(i,'FM000000'), 'Producto extra ' || i, ROUND(DBMS_RANDOM.VALUE(10,500),2));           //insertar datos
+   END LOOP;
+ END;
+ /
+
+- SELECT MAX(prd_codigo) AS max_codigo FROM producto;
+
+- SELECT (SUM(time_waited_micro)/SUM(total_waits))/1000 AS tTms                                                   //tT
+  FROM v$system_event
+  WHERE event='db file sequential read';
+
+- SELECT (SUM(time_waited_micro)/SUM(total_waits))/1000 AS tSms                                                   //tS
+  FROM v$session_event
+  WHERE event='db file scattered read';
+
+- WITH base AS (SELECT table_name, num_rows, blocks                                                               //bloques por tiempo
+  FROM user_tables
+  WHERE table_name IN ('PRODUCTO','BODEGA','BODEGA_PRODUCTO'))
+  SELECT table_name, num_rows, blocks,3.7904114 * blocks AS tT_ms 
+  FROM base;
+
+
+-Costo = (hi + 1) × (tT + tS)
+-Costo = hi × (tT + tS) + tS + tT × b
+-b = (filas recuperadas / nr) × br                                           //bloques leídos                     //b
+
+
+2.3 Cálculo Costos:
+
+- SHOW PARAMETER OPTIMIZER_MODE;
+
+- ALTER SESSION SET OPTIMIZER_MODE = ALL_ROWS;                              //cambair a nivel de sesión
+
+- ALTER SYSTEM SET OPTIMIZER_MODE = FIRST_ROWS_10 SCOPE=BOTH;               //cambiar a nivel de sistema
+
+- ALTER SESSION SET OPTIMIZER_MODE = FIRST_ROWS;
+
+- EXPLAIN PLAN FOR
+  SELECT * FROM producto
+  WHERE prd_precio > 150;
+
+- SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY);
+
+
+
+
+tabla:
+
+| Métrica                | Afecta                                     |
+| ---------------------- | -----------------------------------------  |
+| nr (tuplas)            | más tuplas ⇒ más I/O                      |
+| br (bloques)           | más bloques ⇒ más lecturas                |
+| tr (tamaño tupla)      | determina cuántas tuplas caben por bloque  |
+| fr (tuplas por bloque) | afecta número de bloques leídos            |
+| V(A,r)                 | selectividad ⇒ utilidad del índice        |
+| AAi (altura índice)    | tiempo de búsqueda en árbol B+             |
+| tT y tS                | costo real de E/S                          |
+| Optimizer Mode         | elección del plan                          |
+
+
+Parámetros básicos
+
+nr = número de tuplas
+br = bloques usados
+tr = tamaño tupla
+fr = filas por bloque = tamaño_bloque / tr
+V(A,r) = valores distintos
+AAi = altura índice = BLEVEL + 1
+Tiempos
+tT = tiempo lectura bloque
+tS = tiempo búsqueda bloque
+(Se obtienen desde vistas de eventos: v$system_event, v$session_event)
+
+OPTIMIZER_MODE
+
+ALL_ROWS → OLAP, optimización total
+FIRST_ROWS(n) → primeras filas rápidas
+CHOOSE → depende de estadísticas
+RULE → obsoleto
+
+
+BLEVEL+ → El índice es más alto → más costo de búsqueda.
+
+CBO= optimizador basado en costos
+RBO= optimizador basado en reglas
+
+OLAP= online analytical processing
