@@ -1,4 +1,4 @@
-Base de Datos - Taller 2.3
+--Base de Datos - Taller 2.3
 --Optimizar Base de Datos
 
 --Mostrar estado de optimizer mode
