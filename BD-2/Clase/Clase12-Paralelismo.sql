@@ -108,6 +108,17 @@ SELECT * FROM PRODUCTO;
 COMMIT; --si no da error hacer commit en  app
 
 
+--Pruebas si usuario quita más de lo que existe
+UPDATE producto_pedclie SET ppc_cantidad=120
+WHERE prd_codigo = 'P008'
+AND ped_numero=2;
+COMMIT;
+INSERT INTO pago VALLUES('PAG002', 2, null, null);
+
+
+--SEGUNDO CASO
+--Crear procedimiento:
+
 
 
 
