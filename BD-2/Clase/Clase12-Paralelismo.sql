@@ -80,7 +80,8 @@ BEGIN
     WHERE ped_numero =v_ped_numero;
     
     
-    --Insert aplicación para oingresar el pago controlar con exeption
+    --Insert desde aplicación para ingresar el pago 
+    --controlar con exeption:
     EXCEPTION
         WHEN OTHERS THEN
         RAISE_APPLICATION_ERROR(-2001, 'Error al registrar el pago' || SQLERRM || 'Línea: ' || DBMS_UTILITY.FORMAT_ERROR_BACKTRACE);
@@ -118,6 +119,77 @@ INSERT INTO pago VALLUES('PAG002', 2, null, null);
 
 --SEGUNDO CASO
 --Crear procedimiento:
+CREATE OR REPLACE PROCEDURE p_registra_pago2 (
+    v.pag_codigo PAGOS.pag_codigo%TYPE, 
+    v.ped_numero  PAGOS.ped_numero%TYPE,
+    v.pag_monto PAGOS.pag_monto%TYPE,
+    v.pag_fecha PAGOS.pag_fecha%TYPE
+    )
+IS v_total_prd NUMBER;
+   c_producto SYS_REFCURSOR; --cursor de producto
+   v_codigo PRODUCTO.prd_codigo%TYPE;
+   v_cantidad PRODUCTO_PEDCLI.ppc_cantidad%TYPE;
+   v_existencia PRODUCTO.prd_existencia%TYPE;
+   v_estado PEDIDOCLIENTE.ped_estado%TYPE;
+   v_monto_calculado PAGOS.pag_monto%TYPE;
+BEGIN
+    SAVEPOINT inicio_transaccion;
+
+    SELECT COUNT(*) INTO v_total_prd
+    FROM producto_pedcli
+    WHERE ped_numero = v_ped_numero; --variable que manda el disparador
+    IF v_total_prd =0 THEN
+        RAISE_application_error(-2001, 'No hay productos en el pedido');
+    END IF;
+
+  SELECT SUM(ppc.ppc_cantidad * p.prd_precio) INTO v_monto_calculado
+  FROM PRODUCTO_PEDCLI ppc, producto p
+  WHERE ppc.prd_codigo = p.prd_codigo
+  GROUP BY ppc.ped_numero
+  HAVING ppc.ped_numero =v_ped_numero; --calcula el monto
+
+  OPEN c_poducto FOR SELECT PRD_CODIGO, PPC_CANTIDAD from PRODUCTO_PEDCLI
+  WHERE ped_numero = v_ped_numero; --abrir o crear cursor
+    
+    --hacer que funcion con lazo
+    LOOP FETCH c_producto INTO v_codigo, v_cantidad;
+        EXIT WHEN c_producto%NOTFOUND;
+        SELECT prd_existencia INTO v_existencia
+        FROM producto
+        WHERE prd_codigo = v_codigo FOR UPDATE; --existencia del producto y bloqueo registro
+        
+        UPDATE producto SET prd_existencia= v_existencia-v_cantidad
+        WHERE prd_codigo = v_codigo;
+    END LOOP;
+
+
+    --actualizar estado del pedido
+    SELECT ped_estado INTO v_estado FROM PEDIDOCLIENTE
+    WHERE ped_numero = v_ped_estado FOR UPDATE;
+        
+    UPDATE pedidocliente SET ped_estado = 'CANCELADO'
+    WHERE ped_numero =v_ped_numero;
+    
+    
+    --Insert aquí para ingresar el pago y controlar con exeption
+    INSERT INTO pagos VALUES(v_pag_codigo, v_ped_numero, v_monto_calculado, v_pag_fecha);
+    COMMIT;
+
+    EXCEPTION
+        WHEN OTHERS THEN
+        RAISE_APPLICATION_ERROR(-2001, 'Error al registrar el pago' || SQLERRM || 'Línea: ' || DBMS_UTILITY.FORMAT_ERROR_BACKTRACE);
+        ROLLBACK TO inicio_transaccion;
+        RAISE;
+
+END pa_registra_pago2;
+/
+
+
+--seguir con:
+BEGIN
+    pa_registra_pago2('Pag002', 2, NULL, NULL);
+END;
+/
 
 
 
