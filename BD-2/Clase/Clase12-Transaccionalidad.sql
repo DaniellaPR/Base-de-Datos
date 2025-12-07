@@ -120,10 +120,10 @@ INSERT INTO pago VALLUES('PAG002', 2, null, null);
 --SEGUNDO CASO
 --Crear procedimiento:
 CREATE OR REPLACE PROCEDURE p_registra_pago2 (
-    v.pag_codigo PAGOS.pag_codigo%TYPE, 
-    v.ped_numero  PAGOS.ped_numero%TYPE,
-    v.pag_monto PAGOS.pag_monto%TYPE,
-    v.pag_fecha PAGOS.pag_fecha%TYPE
+    v_pag_codigo PAGOS.pag_codigo%TYPE, 
+    v_ped_numero  PAGOS.ped_numero%TYPE,
+    v_pag_monto PAGOS.pag_monto%TYPE,
+    v_pag_fecha PAGOS.pag_fecha%TYPE
     )
 IS v_total_prd NUMBER;
    c_producto SYS_REFCURSOR; --cursor de producto
@@ -148,7 +148,7 @@ BEGIN
   GROUP BY ppc.ped_numero
   HAVING ppc.ped_numero =v_ped_numero; --calcula el monto
 
-  OPEN c_poducto FOR SELECT PRD_CODIGO, PPC_CANTIDAD from PRODUCTO_PEDCLI
+  OPEN c_producto FOR SELECT PRD_CODIGO, PPC_CANTIDAD from PRODUCTO_PEDCLI
   WHERE ped_numero = v_ped_numero; --abrir o crear cursor
     
     --hacer que funcion con lazo
@@ -177,8 +177,8 @@ BEGIN
 
     EXCEPTION
         WHEN OTHERS THEN
-        RAISE_APPLICATION_ERROR(-2001, 'Error al registrar el pago' || SQLERRM || 'Línea: ' || DBMS_UTILITY.FORMAT_ERROR_BACKTRACE);
         ROLLBACK TO inicio_transaccion;
+        RAISE_APPLICATION_ERROR(-2001, 'Error al registrar el pago' || SQLERRM || 'Línea: ' || DBMS_UTILITY.FORMAT_ERROR_BACKTRACE);       
         RAISE;
 
 END pa_registra_pago2;
