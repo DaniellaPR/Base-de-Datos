@@ -512,5 +512,28 @@ select * from producto;
 
 
 
---HASTA AQUI PARA MAÑANA, GUAPA
-  
+--HASTA AQUI PARA MAÑANA
+--19/2/2025
+--Abrir con OPEN y el nombre de instancias y conectarse con los usuarios.
+--
+--U DESAR:
+CREATE DATABASE LINK link_qa
+CONNECT TO u_qa IDENTIFIED BY lticPUCE24
+USING 'qa'; --enlace conectado en tnsnames
+--enlace entre pdbs
+
+
+--En DESAR USUARIO
+CREATE DATABASE LINK link_qa
+CONNECT TO u_qa IDENTIFIED BY lticPUCE24
+USING 'qa';
+
+SELECT * FROM cliente@link_qa;
+
+DROP DATABASE LINK link_qa;
+commit;
+
+
+--EN QA USUARIO
+select * from tab;
+
