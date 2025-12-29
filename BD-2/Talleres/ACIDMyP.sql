@@ -211,7 +211,7 @@ ROLLBACK;
 SELECT prd_codigo,prd_existencia FROM producto WHERE prd_codigo IN('P001','P006');
 
 
---===========CONSISTENCIA(MYSQL):SP===========
+--===========CONSISTENCIA(MYSQL):SP=========== NO VALE USÉ EL DE ABAJO
 DELIMITER $$
 
 DROP PROCEDURE IF EXISTS sp_actualiza_existencia $$
@@ -235,8 +235,60 @@ END $$
 
 DELIMITER ;
 
+----------------------------------------------------------------------------------------------
+-- Asegurarse que usuario 2 tiene permisos -- DESDE ROOT EN BD mysql -u root -p lticPUCE24
+GRANT EXECUTE ON PROCEDURE taller.sp_actualiza_existencia TO 'usuario2'@'%';
+FLUSH PRIVILEGES;
+
+-- Para probar consistencia:
+DELIMITER $$
+DROP PROCEDURE IF EXISTS sp_actualiza_existencia $$
+CREATE PROCEDURE sp_actualiza_existencia(
+  p_prd  VARCHAR(10),
+  p_cant DECIMAL(10,2)
+)
+BEGIN
+  DECLARE v_exist DECIMAL(10,2);
+  DECLARE v_msg VARCHAR(255);
+
+  START TRANSACTION;
+
+  SELECT prd_existencia
+  INTO v_exist
+  FROM producto
+  WHERE prd_codigo = p_prd
+  FOR UPDATE;
+
+  IF ROW_COUNT() = 0 THEN
+    ROLLBACK;
+    SET v_msg = CONCAT('Producto no existe: ', p_prd);
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = v_msg;
+  END IF;
+
+  IF v_exist < p_cant THEN
+    ROLLBACK;
+    SET v_msg = CONCAT('No hay existencia suficiente: ', p_prd);
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = v_msg;
+  END IF;
+
+  UPDATE producto
+  SET prd_existencia = v_exist - p_cant
+  WHERE prd_codigo = p_prd;
+
+  COMMIT;
+END $$
+
+DELIMITER ;
+------------------------------------------------------------------------
+
 --En usuario 22222222222222
 --===========PRUEBA(CONSISTENCIA)===========
+SELECT prd_codigo, prd_existencia
+FROM producto
+WHERE prd_codigo IN ('P001','P006');
+
 CALL sp_actualiza_existencia('P001',10);
 CALL sp_actualiza_existencia('P006',9999); --debe fallar y no cambiar nada
 SELECT prd_codigo,prd_existencia FROM producto WHERE prd_codigo IN('P001','P006');
@@ -411,7 +463,7 @@ SELECT prd_codigo,prd_existencia FROM taller.producto WHERE prd_codigo IN('P001'
 
 
 --
---===========CONSISTENCIA(POSTGRES):FUNCION===========
+--===========CONSISTENCIA(POSTGRES):FUNCION=========== NO USADA PQ NO SE MANEJA COMMIT DENTRO
 CREATE OR REPLACE FUNCTION taller.actualiza_existencia(p_prd VARCHAR,p_cant NUMERIC)
 RETURNS VOID
 LANGUAGE plpgsql
@@ -433,6 +485,65 @@ WHERE prd_codigo=p_prd;
 END $$;
 
 GRANT EXECUTE ON FUNCTION taller.actualiza_existencia(VARCHAR,NUMERIC) TO usuario2;
+
+--------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION taller.actualiza_existencia(
+  p_prd  VARCHAR,
+  p_cant NUMERIC
+)
+RETURNS VOID
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_exist NUMERIC;
+BEGIN
+  SELECT prd_existencia
+  INTO v_exist
+  FROM taller.producto
+  WHERE prd_codigo = p_prd
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Producto no existe: %', p_prd;
+  END IF;
+
+  IF v_exist < p_cant THEN
+    RAISE EXCEPTION 'No hay existencia suficiente para % (stock: %)', p_prd, v_exist;
+  END IF;
+
+  UPDATE taller.producto
+  SET prd_existencia = v_exist - p_cant
+  WHERE prd_codigo = p_prd;
+END;
+$$;
+
+
+
+
+GRANT EXECUTE ON FUNCTION taller.actualiza_existencia(VARCHAR,NUMERIC) TO usuario2;
+
+commit;
+
+--comprobación
+
+BEGIN;
+
+SELECT taller.actualiza_existencia('P001', 10);
+SELECT taller.actualiza_existencia('P006', 9999); -- debe fallar
+
+COMMIT;
+
+----------------------
+BEGIN;
+SELECT taller.actualiza_existencia('P001', 10.0);
+COMMIT;
+rollback;
+
+BEGIN;
+SELECT taller.actualiza_existencia('P006', 9999.0);
+COMMIT;
+select * from taller.producto;
+--------------------------------------------
 
 
 
