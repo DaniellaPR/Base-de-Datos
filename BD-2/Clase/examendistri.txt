@@ -1,0 +1,342 @@
+sys:
+
+
+
+
+
+
+
+
+
+
+
+
+
+show pdbs;
+SELECT * FROM v$database;
+SELECT * FROM v$pdbs;
+SELECT cdb FROM v$database;
+SHOW con_name;
+
+
+--Crear pdbs
+CREATE PLUGGABLE DATABASE QYT
+ADMIN USER uqyt IDENTIFIED BY "lticPUCE24"
+FILE_NAME_CONVERT = ('/u01/app/oracle/oradata/ORCL/pdbseed/', '/u01/app/oracle/oradata/ORCL/QYT/');
+
+CREATE PLUGGABLE DATABASE GYQ
+ADMIN USER ugyq IDENTIFIED BY "lticPUCE24"
+FILE_NAME_CONVERT = ('/u01/app/oracle/oradata/ORCL/pdbseed/', '/u01/app/oracle/oradata/ORCL/GYQ/');
+
+ALTER PLUGGABLE DATABASE QYT OPEN;
+ALTER PLUGGABLE DATABASE GYQ OPEN;
+SHOW PDBs;
+
+
+--para qyt
+ALTER SESSION SET CONTAINER = QYT;
+SHOW con_name;
+
+grant dba to UQYT;
+
+CREATE TABLESPACE DATOS DATAFILE '/u01/app/oracle/oradata/ORCL/QYT/DATOS.dbf'
+SIZE 500M
+AUTOEXTEND ON NEXT 500M
+/
+
+CREATE TABLESPACE INDICES DATAFILE '/u01/app/oracle/oradata/ORCL/QYT/INDICES.dbf'
+SIZE 500M
+AUTOEXTEND ON NEXT 500M
+/
+
+CREATE USER u_qYT IDENTIFIED BY lticPUCE24 DEFAULT TABLESPACE DATOS;
+GRANT CONNECT, RESOURCE, DBA TO u_qyt WITH ADMIN OPTION;
+
+
+
+--para gyq
+ALTER SESSION SET CONTAINER = GYQ;
+SHOW con_name;
+
+grant dba to UGYQ;
+
+CREATE TABLESPACE DATOS DATAFILE '/u01/app/oracle/oradata/ORCL/GYQ/DATOS.dbf'
+SIZE 500M
+AUTOEXTEND ON NEXT 500M
+/
+
+CREATE TABLESPACE INDICES DATAFILE '/u01/app/oracle/oradata/ORCL/GYQ/INDICES.dbf'
+SIZE 500M
+AUTOEXTEND ON NEXT 500M
+/
+
+CREATE USER u_gyq IDENTIFIED BY lticPUCE24 DEFAULT TABLESPACE DATOS;
+GRANT CONNECT, RESOURCE, DBA TO u_gyq WITH ADMIN OPTION;
+commit;
+
+ALTER SESSION SET CONTAINER = CDB$ROOT;
+
+SELECT * FROM v$services;
+
+
+
+
+
+
+
+QYT:
+CREATE DATABASE LINK link_gyq
+CONNECT TO u_gyq IDENTIFIED BY lticPUCE24
+USING 'GYQ';
+
+
+--script qyt:
+/*==============================================================*/
+/* Table: PAIS                                                  */
+/*==============================================================*/
+create table PAIS (
+   PAS_CODIGO           VARCHAR2(8)           not null
+      constraint CKC_PAS_CODIGO_PAIS check (PAS_CODIGO = upper(PAS_CODIGO)),
+   PAS_NOMBRE           VARCHAR2(60)          not null,
+   PAS_CONTINENTE       VARCHAR2(2)           not null
+      constraint CKC_PAS_CONTINENTE_PAIS check (PAS_CONTINENTE in ('AN','AS','A','E','SI','O','AT') and PAS_CONTINENTE = upper(PAS_CONTINENTE)),
+   constraint PK_PAIS primary key (PAS_CODIGO)
+)
+   tablespace DATOS
+/
+
+/*==============================================================*/
+/* Table: CIUDAD                                                */
+/*==============================================================*/
+create table CIUDAD (
+   CIU_CODIGO           VARCHAR2(8)           not null
+      constraint CKC_CIU_CODIGO_CIUDAD check (CIU_CODIGO = upper(CIU_CODIGO)),
+   PAS_CODIGO           VARCHAR2(8)           not null
+      constraint CKC_PAS_CODIGO_CIUDAD check (PAS_CODIGO = upper(PAS_CODIGO)),
+   CIU_NOMBRE           VARCHAR2(60)          not null,
+   constraint PK_CIUDAD primary key (CIU_CODIGO)
+)
+   tablespace DATOS
+/
+
+/*==============================================================*/
+/* Table: ZOOLOGICO                                             */
+/*==============================================================*/
+create table ZOOLOGICO (
+   ZOO_CODIGO           VARCHAR2(10)          not null
+      constraint CKC_ZOO_CODIGO_ZOOLOGIC check (ZOO_CODIGO = upper(ZOO_CODIGO)),
+   CIU_CODIGO           VARCHAR2(8)           not null
+      constraint CKC_CIU_CODIGO_ZOOLOGIC check (CIU_CODIGO = upper(CIU_CODIGO)),
+   ZOO_NOMBRE           VARCHAR2(60)          not null,
+   ZOO_TAMANO           NUMBER(8)             not null,
+   ZOO_PRESUPUESTO      NUMBER(14,2)          not null,
+   constraint PK_ZOOLOGICO primary key (ZOO_CODIGO)
+)
+   tablespace DATOS
+/
+
+
+/*==============================================================*/
+/* Table: ANIMAL                                                */
+/*==============================================================*/
+create table ANIMAL (
+   ANM_NUMERO           NUMBER(10)            not null,
+   ZOO_CODIGO           VARCHAR2(10)          not null
+      constraint CKC_ZOO_CODIGO_ANIMAL check (ZOO_CODIGO = upper(ZOO_CODIGO)),
+   ESP_CODIGO           VARCHAR2(10)          not null
+      constraint CKC_ESP_CODIGO_ANIMAL check (ESP_CODIGO = upper(ESP_CODIGO)),
+   PAS_CODIGO           VARCHAR2(8)           not null
+      constraint CKC_PAS_CODIGO_ANIMAL check (PAS_CODIGO = upper(PAS_CODIGO)),
+   ANM_SEXO             VARCHAR2(1)           not null
+      constraint CKC_ANM_SEXO_ANIMAL check (ANM_SEXO in ('M','H') and ANM_SEXO = upper(ANM_SEXO)),
+   ANM_ANONACIMIENTO    NUMBER(4)             not null,
+   constraint PK_ANIMAL primary key (ANM_NUMERO)
+)
+   tablespace DATOS
+/
+
+commit;
+
+
+
+select * from tab;
+SELECT * FROM familia@link_gyq;
+commit;
+
+DROP DATABASE LINK link_gyq;
+
+CREATE DATABASE LINK link_gyq
+CONNECT TO u_gyq IDENTIFIED BY lticPUCE24
+USING 'GYQ';
+
+SELECT * FROM familia@link_GYQ;
+commit;
+
+
+
+
+--trigger antes de insertar animal
+create trigger TIB_ANIMAL before insert
+on ANIMAL for each row
+declare
+    integrity_error  exception;
+    errno            integer;
+    errmsg           char(200);
+    dummy            integer;
+    found            boolean;
+    --  Declaration of InsertChildParentExist constraint for the parent "ZOOLOGICO"
+    cursor cpk1_animal(var_zoo_codigo varchar) is
+       select 1
+       from   ZOOLOGICO
+       where  ZOO_CODIGO = var_zoo_codigo
+        and   var_zoo_codigo is not null;
+    --  Declaration of InsertChildParentExist constraint for the parent "ESPECIE"
+    cursor cpk2_animal(var_esp_codigo varchar) is
+       select 1
+       from   ESPECIE@link_GYQ
+       where  ESP_CODIGO = var_esp_codigo
+        and   var_esp_codigo is not null;
+    --  Declaration of InsertChildParentExist constraint for the parent "PAIS"
+    cursor cpk3_animal(var_pas_codigo varchar) is
+       select 1
+       from   PAIS
+       where  PAS_CODIGO = var_pas_codigo
+        and   var_pas_codigo is not null;
+
+begin
+    --  Parent "ZOOLOGICO" must exist when inserting a child in "ANIMAL"
+    if :new.ZOO_CODIGO is not null then
+       open  cpk1_animal(:new.ZOO_CODIGO);
+       fetch cpk1_animal into dummy;
+       found := cpk1_animal%FOUND;
+       close cpk1_animal;
+       if not found then
+          errno  := -20002;
+          errmsg := 'En zoolólico no hay parientes, no se puede insertar el animal.';
+          raise integrity_error;
+       end if;
+    end if;
+
+    --  Parent "ESPECIE" must exist when inserting a child in "ANIMAL"
+    if :new.ESP_CODIGO is not null then
+       open  cpk2_animal(:new.ESP_CODIGO);
+       fetch cpk2_animal into dummy;
+       found := cpk2_animal%FOUND;
+       close cpk2_animal;
+       if not found then
+          errno  := -20002;
+          errmsg := 'No hay la especia en la tabla. No se puede añadir el animal.';
+          raise integrity_error;
+       end if;
+    end if;
+
+    --  Parent "PAIS" must exist when inserting a child in "ANIMAL"
+    if :new.PAS_CODIGO is not null then
+       open  cpk3_animal(:new.PAS_CODIGO);
+       fetch cpk3_animal into dummy;
+       found := cpk3_animal%FOUND;
+       close cpk3_animal;
+       if not found then
+          errno  := -20002;
+          errmsg := 'No existe ese país. No se puede agregar el animal.';
+          raise integrity_error;
+       end if;
+    end if;
+
+
+--  Errors handling
+exception
+    when integrity_error then
+       raise_application_error(errno, errmsg);
+end;
+/
+
+
+--datos:
+
+INSERT INTO PAIS VALUES ('ECU', 'Ecuador', 'A');
+INSERT INTO PAIS VALUES ('COL', 'Colombia', 'A');
+
+INSERT INTO CIUDAD VALUES ('UIO', 'ECU', 'Quito');
+INSERT INTO CIUDAD VALUES ('GYE', 'ECU', 'Guayaquil');
+INSERT INTO CIUDAD VALUES ('BOG', 'COL', 'Bogotá');
+
+INSERT INTO ZOOLOGICO VALUES ('ZOO01', 'UIO', 'Zoológico Quito', 1500, 2500000);
+INSERT INTO ZOOLOGICO VALUES ('ZOO02', 'GYE', 'Zoológico Guayaquil', 1200, 1800000);
+INSERT INTO ZOOLOGICO VALUES ('ZOO03', 'BOG', 'Zoológico Bogotá', 2000, 3200000);
+
+COMMIT;
+
+
+--Insertamos datos en animal que si tengan la especie existente:
+INSERT INTO ANIMAL VALUES (1,  'ZOO01', 'LEON',  'ECU', 'M', 2020);
+SELECT * FROM ANIMAL;
+--Dato que no tiene especie relacionada:
+INSERT INTO ANIMAL VALUES (8,  'ZOO01', 'ESPECIE', 'ECU', 'M', 2019);
+
+
+
+GYQ:
+CREATE DATABASE LINK link_qyt
+CONNECT TO u_qyt IDENTIFIED BY lticPUCE24
+USING 'QYT';
+
+--gyq
+
+/*==============================================================*/
+/* Table: FAMILIA                                               */
+/*==============================================================*/
+create table FAMILIA (
+   FAM_CODIGO           VARCHAR2(10)          not null
+      constraint CKC_FAM_CODIGO_FAMILIA check (FAM_CODIGO = upper(FAM_CODIGO)),
+   FAM_NOMBRE           VARCHAR2(60)          not null,
+   constraint PK_FAMILIA primary key (FAM_CODIGO)
+)
+   tablespace DATOS
+/
+
+
+/*==============================================================*/
+/* Table: ESPECIE                                               */
+/*==============================================================*/
+create table ESPECIE (
+   ESP_CODIGO           VARCHAR2(10)          not null
+      constraint CKC_ESP_CODIGO_ESPECIE check (ESP_CODIGO = upper(ESP_CODIGO)),
+   FAM_CODIGO           VARCHAR2(10)          not null
+      constraint CKC_FAM_CODIGO_ESPECIE check (FAM_CODIGO = upper(FAM_CODIGO)),
+   ESP_NOMBREVULGAR     VARCHAR2(60)          not null,
+   ESP_NOMBRECIENTIFICO VARCHAR2(60)          not null,
+   ESP_PELIGRO          VARCHAR2(1)          default 'N'  not null
+      constraint CKC_ESP_PELIGRO_ESPECIE check (ESP_PELIGRO in ('S','N') and ESP_PELIGRO = upper(ESP_PELIGRO)),
+   constraint PK_ESPECIE primary key (ESP_CODIGO)
+)
+   tablespace DATOS
+   
+/
+
+commit;
+
+select * from tab;
+SELECT * FROM animal@link_qyt;
+commit;
+
+DROP DATABASE LINK link_qyt;
+
+CREATE DATABASE LINK link_qyt
+CONNECT TO u_qyt IDENTIFIED BY lticPUCE24
+USING 'QYT';
+
+SELECT * FROM animal@link_qyt;
+
+commit;
+
+
+--datos:
+INSERT INTO FAMILIA VALUES ('FEL', 'Felidae');
+INSERT INTO FAMILIA VALUES ('CAN', 'Canidae');
+
+INSERT INTO ESPECIE VALUES ('LEON', 'FEL', 'León', 'Panthera leo', 'S');
+INSERT INTO ESPECIE VALUES ('TIGRE', 'FEL', 'Tigre', 'Panthera tigris', 'S');
+INSERT INTO ESPECIE VALUES ('LOBO', 'CAN', 'Lobo', 'Canis lupus', 'N');
+
+commit;
