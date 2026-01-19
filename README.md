@@ -36,5 +36,8 @@ Scripts de PL-SQL que incluyen:
 - Transaccionalidad del sistema
 - Concurrencia
 - Arquitectura de base de datos
-- Paralelismo y distribución
+- Paralelismo
+- Distribución, Particionamiento
+- Replicación síncrona, asíncrona
+- Datawarehouse
 
